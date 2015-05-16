@@ -692,6 +692,20 @@
                        (avl-map-kv-reduce (.getRight node) f init))]
             init))))))
 
+(defn ^:private avl-set-reduce [node f init]
+  (let [init (if (nil? (.getLeft node))
+               init
+               (avl-set-reduce (.getLeft node) f init))]
+    (if (reduced? init)
+      init
+      (let [init (f init (.getKey node))]
+        (if (reduced? init)
+          init
+          (let [init (if (nil? (.getRight node))
+                       init
+                       (avl-set-reduce (.getRight node) f init))]
+            init))))))
+
 (deftype AVLMapSeq [_meta stack ascending? cnt ^:mutable _hash]
   Object
   (toString [this]
@@ -1045,6 +1059,24 @@
   ISet
   (-disjoin [this v]
     (AVLSet. _meta (dissoc avl-map v) nil))
+  IReduce
+  (-reduce [this f]
+    (let [tree (.getTree this)]
+      (if (nil? tree)
+        (f)
+        (let [init (avl-set-reduce tree f (f))]
+          (if (reduced? init)
+            @init
+            init)))))
+
+  (-reduce [this f start]
+    (let [tree (.getTree this)]
+      (if (nil? tree)
+        start
+        (let [init (avl-set-reduce tree f start)]
+          (if (reduced? init)
+            @init
+            init)))))
 
   IFn
   (-invoke [this k]
